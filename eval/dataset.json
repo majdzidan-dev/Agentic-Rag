@@ -1,0 +1,35 @@
+[
+  {
+    "id": "q1",
+    "question": "Does intermittent fasting improve insulin resistance in people with type 2 diabetes?",
+    "relevant_pmids": [
+      "36508320"
+    ],
+    "notes": "INTERFAST-2 RCT - IF group showed significant HbA1c reduction vs control in insulin-treated T2D patients."
+  },
+  {
+    "id": "q2",
+    "question": "What effect does creatine supplementation have on cognitive function in healthy adults?",
+    "relevant_pmids": [
+      "39070254",
+      "37759877"
+    ],
+    "notes": "Meta-analysis (16 RCTs) plus a dose-response RCT, both on creatine and cognitive performance."
+  },
+  {
+    "id": "q3",
+    "question": "Does creatine supplementation improve memory specifically?",
+    "relevant_pmids": [
+      "35984306"
+    ],
+    "notes": "Meta-analysis of 10 RCTs specifically on creatine and memory performance."
+  },
+  {
+    "id": "q4",
+    "question": "Do statins reduce all-cause mortality risk?",
+    "relevant_pmids": [
+      "36233511"
+    ],
+    "notes": "Meta-analysis of 54 propensity-score-matched studies, statin use vs all-cause mortality."
+  }
+]

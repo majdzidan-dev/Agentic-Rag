@@ -1,0 +1,21 @@
+services:
+  agent:
+    build: .
+    # Needed for the interactive chat loop (input()/print()) to work
+    # properly when you attach to the container's terminal.
+    stdin_open: true
+    tty: true
+
+    # Loads your API keys from .env on your real machine into the
+    # container's environment - the .env file itself is never copied into
+    # the image (see .dockerignore).
+    env_file:
+      - .env
+
+    # Volumes: map folders on YOUR machine to folders INSIDE the container.
+    # This is what makes data persistent across container restarts/rebuilds -
+    # without this, chroma_db and the BM25 corpus would vanish every time
+    # the container is removed and recreated.
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./bm25_corpus.json:/app/bm25_corpus.json

@@ -1,0 +1,17 @@
+# Secrets
+.env
+.env.*
+
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Local vector database
+chroma_db/
+
+# VS Code settings
+.vscode/
