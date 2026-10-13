@@ -1,6 +1,7 @@
-# Base image: a slim Python 3.11 environment (small download, still full Python).
-# Doesn't need to match your local Python version - the container brings its own.
-FROM python:3.11-slim
+# Base image: a slim Python 3.13 environment (small download, still full Python).
+# Matches the version the pinned requirements were tested with (numpy 2.5
+# needs Python >= 3.12).
+FROM python:3.13-slim
 
 # Prevents Python from buffering print()/input() output - important so your
 # chat prompts ("You: ") actually show up immediately in an interactive terminal.

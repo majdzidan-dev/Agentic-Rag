@@ -25,7 +25,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from config import NCBI_API_KEY, NCBI_EMAIL
 from rag.vector_store import query_existing, add_chunks as add_to_vector_store
-from rag.keyword_store import add_chunks as add_to_keyword_store
+from rag.keyword_store import add_chunks as add_to_keyword_store, stored_pmids
 from rag.hybrid_search import hybrid_search
 from rag.reranker import rerank
 from rag.retrieval_grader import grade_sufficiency, rewrite_query
@@ -43,6 +43,7 @@ FRESH_FETCH_PAPERS = 5       # papers to pull when the database has NOTHING rele
 TOPUP_FETCH_PAPERS = 2       # papers to pull when the database has SOME, but not enough
 RERANK_CANDIDATE_K = 12      # wider shortlist pulled via hybrid search, before reranking
 MAX_RETRIEVAL_ATTEMPTS = 3   # agentic loop cap - stops infinite retry on a bad query
+NEW_PAPER_SEARCH_WINDOW = 20 # how many top PubMed hits to scan for papers not yet stored
 
 
 def _fetch_pubmed_ids(query: str, max_results: int) -> list[str]:
@@ -60,6 +61,22 @@ def _fetch_pubmed_ids(query: str, max_results: int) -> list[str]:
     resp = requests.get(f"{EUTILS_BASE}/esearch.fcgi", params=params, timeout=15)
     resp.raise_for_status()
     return resp.json().get("esearchresult", {}).get("idlist", [])
+
+
+def _fetch_new_pubmed_ids(query: str, count: int) -> list[str]:
+    """Like _fetch_pubmed_ids, but skips papers already in the database.
+    PubMed's top hits for a query are usually the ones stored last time,
+    so asking for just the top `count` would re-fetch them and add nothing."""
+    already_stored = stored_pmids()
+    candidates = _fetch_pubmed_ids(query, max_results=NEW_PAPER_SEARCH_WINDOW)
+    return [pmid for pmid in candidates if pmid not in already_stored][:count]
+
+
+def _element_text(element) -> str:
+    """Full text of an XML element, including text inside nested tags like
+    <i>, <sub> or <sup> (common in gene names and formulas). element.text
+    alone stops at the first nested tag and silently truncates."""
+    return "".join(element.itertext()).strip()
 
 
 def _fetch_pubmed_details(pmids: list[str]) -> list[dict]:
@@ -88,8 +105,18 @@ def _fetch_pubmed_details(pmids: list[str]) -> list[dict]:
         abstract_parts = article.findall(".//AbstractText")
 
         pmid = pmid_el.text if pmid_el is not None else "unknown"
-        title = title_el.text if title_el is not None else "No title"
-        abstract = " ".join(a.text for a in abstract_parts if a.text) or "No abstract available."
+        title = (_element_text(title_el) if title_el is not None else "") or "No title"
+
+        # Structured abstracts split into labelled sections (BACKGROUND,
+        # METHODS, RESULTS...) - keep the label so the section is clear.
+        sections = []
+        for part in abstract_parts:
+            text = _element_text(part)
+            if not text:
+                continue
+            label = part.get("Label")
+            sections.append(f"{label}: {text}" if label else text)
+        abstract = " ".join(sections) or "No abstract available."
 
         papers.append({
             "pmid": pmid,
@@ -156,7 +183,21 @@ def pubmed_search(query: str) -> str:
     query if the first attempt doesn't find good results. Use this for ANY
     question involving biology, medicine, health, clinical research, drugs,
     diseases, or other scientific topics - not general web search."""
+    # Any uncaught exception inside a tool would crash the whole agent, so
+    # failures are returned to the agent as a message instead. Only the
+    # error TYPE is reported - full messages from requests include the
+    # request URL, which can contain the NCBI API key.
+    try:
+        return _run_pubmed_search(query)
+    except Exception as e:
+        print(f"[pubmed_search] failed: {type(e).__name__}")
+        return (
+            f"pubmed_search failed ({type(e).__name__}), so no PubMed results "
+            "are available for this question right now."
+        )
 
+
+def _run_pubmed_search(query: str) -> str:
     current_query = query
     top_results = []
 
@@ -166,8 +207,13 @@ def pubmed_search(query: str) -> str:
         fetch_count = _decide_fetch_count(existing_results)
 
         if fetch_count > 0:
-            pmids = _fetch_pubmed_ids(current_query, max_results=fetch_count)
-            papers = _fetch_pubmed_details(pmids)
+            try:
+                pmids = _fetch_new_pubmed_ids(current_query, count=fetch_count)
+                papers = _fetch_pubmed_details(pmids)
+            except (requests.RequestException, ET.ParseError) as e:
+                # PubMed unreachable - still answer from what's stored locally
+                print(f"[pubmed_search] PubMed fetch failed ({type(e).__name__}), using local index only")
+                papers = []
             new_chunks = _chunk_papers(papers)
             add_to_vector_store(new_chunks)   # dense index
             add_to_keyword_store(new_chunks)  # sparse (BM25) index

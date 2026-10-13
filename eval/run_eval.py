@@ -2,9 +2,11 @@
 Evaluation harness. Run with:  python -m eval.run_eval
 
 1. Loads eval/dataset.json (ground-truth questions + relevant PMIDs).
-2. SETUP - indexes every relevant PMID across the whole dataset into the
-   vector store + BM25 index, so all 5 variants search the exact same
-   fixed corpus (see retrieval_variants.py for why this matters).
+2. SETUP - indexes every relevant PMID across the whole dataset into a
+   SEPARATE, freshly emptied eval vector collection + BM25 file, so all 5
+   variants search the exact same fixed corpus (see retrieval_variants.py
+   for why this matters), unaffected by whatever the agent has stored
+   during normal use.
 3. For each variant, for each question, runs retrieval and scores it
    against the ground truth using the metrics in eval/metrics.py.
 4. Prints a results table, and saves it to eval/results.json.
@@ -15,11 +17,16 @@ import time
 
 from eval.metrics import evaluate_ranking
 from eval.retrieval_variants import VARIANTS
+from rag import keyword_store, vector_store
 from tools.pubmed_rag import index_specific_papers
 
 DATASET_PATH = "eval/dataset.json"
 RESULTS_PATH = "eval/results.json"
 TOP_K = 10  # widest ranked list any metric here needs (Recall@10)
+
+# Isolated stores for the eval corpus - never the agent's live ones
+EVAL_COLLECTION_NAME = "pubmed_papers_eval"
+EVAL_BM25_CORPUS_PATH = "./eval/bm25_eval_corpus.json"
 
 
 def load_dataset() -> list[dict]:
@@ -30,7 +37,12 @@ def load_dataset() -> list[dict]:
 def setup_corpus(dataset: list[dict]) -> None:
     """Index every unique ground-truth PMID across the whole dataset once,
     up front - so every variant is tested against identical, complete
-    coverage rather than whatever a live search happens to surface."""
+    coverage rather than whatever a live search happens to surface.
+    Both eval stores are emptied first so the corpus is exactly the
+    ground-truth papers on every run."""
+    vector_store.use_collection(EVAL_COLLECTION_NAME, reset=True)
+    keyword_store.use_corpus(EVAL_BM25_CORPUS_PATH, reset=True)
+
     all_pmids = sorted({pmid for item in dataset for pmid in item["relevant_pmids"]})
     print(f"Indexing {len(all_pmids)} known ground-truth papers into the corpus...")
     index_specific_papers(all_pmids)

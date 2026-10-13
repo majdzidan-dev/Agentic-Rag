@@ -30,7 +30,18 @@ from sentence_transformers import CrossEncoder
 
 # A small, fast cross-encoder trained on MS MARCO, a widely used
 # passage-ranking benchmark - a common, well-regarded choice for this task.
-_reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+# Loaded on first use, not at import - the first load downloads the model,
+# and a failed download (e.g. offline) shouldn't stop the agent from starting.
+_reranker = None
+
+
+def _get_reranker() -> CrossEncoder:
+    global _reranker
+    if _reranker is None:
+        _reranker = CrossEncoder(RERANKER_MODEL)
+    return _reranker
 
 
 def _to_probability(raw_score: float) -> float:
@@ -54,7 +65,7 @@ def rerank(query: str, candidates: list[tuple], top_n: int) -> list[tuple]:
     documents = [doc for doc, _ in candidates]
     pairs = [(query, doc.page_content) for doc in documents]
 
-    raw_scores = _reranker.predict(pairs)  # one score per (query, document) pair
+    raw_scores = _get_reranker().predict(pairs)  # one score per (query, document) pair
     scored = [(doc, _to_probability(score)) for doc, score in zip(documents, raw_scores)]
 
     scored.sort(key=lambda pair: pair[1], reverse=True)

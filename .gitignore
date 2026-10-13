@@ -13,5 +13,8 @@ __pycache__/
 # Local vector database
 chroma_db/
 
+# Eval-only BM25 corpus - rebuilt from scratch on every eval run
+eval/bm25_eval_corpus.json
+
 # VS Code settings
 .vscode/

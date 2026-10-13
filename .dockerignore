@@ -1,4 +1,5 @@
 # Local Python environment - the container builds its own, don't copy yours in
+.venv/
 venv/
 __pycache__/
 *.pyc
@@ -7,10 +8,12 @@ __pycache__/
 # baked into the image itself
 chroma_db/
 bm25_corpus.json
+eval/bm25_eval_corpus.json
 
 # Secrets - NEVER bake API keys into an image. Passed in at run-time instead
 # (see docker-compose.yml / --env-file)
 .env
+.env.*
 
 # Version control / editor files
 .git/

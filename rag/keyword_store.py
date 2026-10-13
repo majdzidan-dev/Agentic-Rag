@@ -22,6 +22,16 @@ from rank_bm25 import BM25Okapi
 CORPUS_PATH = "./bm25_corpus.json"
 
 
+def use_corpus(path: str, reset: bool = False) -> None:
+    """Point every function in this module at a different corpus file.
+    Used by the evaluation harness to search an isolated eval corpus
+    instead of the agent's live one. reset=True empties it first."""
+    global CORPUS_PATH
+    CORPUS_PATH = path
+    if reset and os.path.exists(CORPUS_PATH):
+        os.remove(CORPUS_PATH)
+
+
 def _tokenize(text: str) -> list[str]:
     """Simple whitespace/punctuation tokenizer - lowercase words only.
     BM25 just needs consistent tokens, not linguistic sophistication."""
@@ -51,6 +61,11 @@ def add_chunks(chunks: list[dict]) -> None:
     for chunk in chunks:
         corpus[chunk["chunk_id"]] = chunk
     _save_corpus(corpus)
+
+
+def stored_pmids() -> set[str]:
+    """PMIDs of every paper that already has chunks in the corpus."""
+    return {chunk["pmid"] for chunk in _load_corpus().values()}
 
 
 def keyword_search(query: str, k: int) -> list[tuple[dict, float]]:

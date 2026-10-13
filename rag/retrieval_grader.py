@@ -49,7 +49,12 @@ Retrieved excerpts:
 Respond with exactly this JSON shape:
 {{"sufficient": true or false, "reason": "one short sentence explaining why"}}"""
 
-    response = _grader_llm.invoke(prompt)
+    try:
+        response = _grader_llm.invoke(prompt)
+    except Exception as e:
+        # Same fail-safe as a parse failure: an API hiccup shouldn't crash
+        # the tool or trigger pointless retries.
+        return {"sufficient": True, "reason": f"Grading call failed ({type(e).__name__})."}
     text = _clean_json_response(extract_text(response.content))
 
     try:
@@ -74,5 +79,8 @@ Respond with ONLY the rewritten query text - no quotes, no explanation.
 Original query: {original_query}
 Why it fell short: {reason}"""
 
-    response = _grader_llm.invoke(prompt)
-    return extract_text(response.content).strip().strip('"')
+    try:
+        response = _grader_llm.invoke(prompt)
+    except Exception:
+        return original_query  # can't rewrite right now - retry with the same query
+    return extract_text(response.content).strip().strip('"') or original_query

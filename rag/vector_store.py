@@ -21,11 +21,26 @@ embeddings = GoogleGenerativeAIEmbeddings(
     google_api_key=GOOGLE_API_KEY,
 )
 
-_vector_store = Chroma(
-    collection_name=COLLECTION_NAME,
-    embedding_function=embeddings,
-    persist_directory=PERSIST_DIR,
-)
+
+def _open_collection(name: str) -> Chroma:
+    return Chroma(
+        collection_name=name,
+        embedding_function=embeddings,
+        persist_directory=PERSIST_DIR,
+    )
+
+
+_vector_store = _open_collection(COLLECTION_NAME)
+
+
+def use_collection(name: str, reset: bool = False) -> None:
+    """Point every function in this module at a different collection.
+    Used by the evaluation harness to search an isolated eval corpus
+    instead of the agent's live collection. reset=True empties it first."""
+    global _vector_store
+    _vector_store = _open_collection(name)
+    if reset:
+        _vector_store.reset_collection()
 
 
 def query_existing(query: str, k: int = 6) -> list[tuple[Document, float]]:

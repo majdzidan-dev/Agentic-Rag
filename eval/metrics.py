@@ -39,9 +39,15 @@ def ndcg_at_k(ranked_pmids: list[str], relevant_pmids: set[str], k: int) -> floa
     SENSITIVE: a relevant result at rank 1 counts for more than the same
     result at rank 5. Uses binary relevance (1 if relevant, 0 if not).
     Returns 0-1, where 1.0 means the top-k results are perfectly ordered
-    (all relevant items first)."""
+    (all relevant items first).
+
+    Duplicate PMIDs (several chunks from the same paper) are collapsed to
+    their first occurrence - otherwise one relevant paper would be counted
+    multiple times and the score could exceed 1.0."""
     if not relevant_pmids:
         return 0.0
+
+    ranked_pmids = list(dict.fromkeys(ranked_pmids))  # dedupe, keep order
 
     def dcg(pmids: list[str]) -> float:
         return sum(

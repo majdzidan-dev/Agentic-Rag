@@ -12,7 +12,7 @@ from tools.pubmed_rag import pubmed_search
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
-    temperature=0.9,
+    temperature=0.2,  # low: answers should stick closely to the retrieved evidence
     google_api_key=GOOGLE_API_KEY,
 )
 
